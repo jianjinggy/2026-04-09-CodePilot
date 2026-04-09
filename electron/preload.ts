@@ -10,6 +10,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   shell: {
     openPath: (folderPath: string) => ipcRenderer.invoke('shell:open-path', folderPath),
+    canOpenInVSCode: () => ipcRenderer.invoke('shell:can-open-in-vscode'),
+    openInVSCode: (path: string) => ipcRenderer.invoke('shell:open-in-vscode', path),
+    canOpenInTerminal: () => ipcRenderer.invoke('shell:can-open-in-terminal'),
+    openInTerminal: (path: string) => ipcRenderer.invoke('shell:open-in-terminal', path),
   },
   dialog: {
     openFolder: (options?: { defaultPath?: string; title?: string }) =>

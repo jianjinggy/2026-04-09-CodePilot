@@ -1245,6 +1245,118 @@ app.whenReady().then(async () => {
     return shell.openPath(folderPath);
   });
 
+  // Check if VS Code (code or code-insiders) is available in PATH
+  ipcMain.handle('shell:can-open-in-vscode', async () => {
+    const isWin = process.platform === 'win32';
+    const expandedPath = getExpandedShellPath();
+    const execEnv = { ...sanitizedProcessEnv(), ...userShellEnv, PATH: expandedPath };
+    for (const name of ['code', 'code-insiders']) {
+      try {
+        if (isWin) {
+          execFileSync('where', [name], { timeout: 3000, encoding: 'utf-8', stdio: 'pipe', env: execEnv, shell: true });
+        } else {
+          execFileSync('/usr/bin/which', [name], { timeout: 3000, encoding: 'utf-8', stdio: 'pipe', env: execEnv });
+        }
+        return true;
+      } catch {
+        // not found
+      }
+    }
+    return false;
+  });
+
+  // Open a folder in VS Code (prefers `code`, falls back to `code-insiders`)
+  ipcMain.handle('shell:open-in-vscode', async (_event: Electron.IpcMainInvokeEvent, folderPath: string) => {
+    const isWin = process.platform === 'win32';
+    const expandedPath = getExpandedShellPath();
+    const execEnv = { ...sanitizedProcessEnv(), ...userShellEnv, PATH: expandedPath };
+    for (const name of ['code', 'code-insiders']) {
+      try {
+        if (isWin) {
+          execFileSync('where', [name], { timeout: 3000, encoding: 'utf-8', stdio: 'pipe', env: execEnv, shell: true });
+        } else {
+          execFileSync('/usr/bin/which', [name], { timeout: 3000, encoding: 'utf-8', stdio: 'pipe', env: execEnv });
+        }
+        // VS Code found, now try to open the folder
+        try {
+          spawn(name, [folderPath], {
+            detached: true,
+            stdio: 'ignore',
+            shell: isWin,
+            env: execEnv,
+          }).unref();
+          return { ok: true };
+        } catch (err) {
+          return { ok: false, error: err instanceof Error ? err.message : String(err) };
+        }
+      } catch {
+        // not found, try next
+      }
+    }
+    return { ok: false, error: 'VS Code not found in PATH' };
+  });
+
+  // Check if a terminal is available on the system
+  ipcMain.handle('shell:can-open-in-terminal', async () => {
+    if (process.platform === 'win32') return true;
+    if (process.platform === 'darwin') return true;
+    const expandedPath = getExpandedShellPath();
+    const execEnv = { ...sanitizedProcessEnv(), ...userShellEnv, PATH: expandedPath };
+    for (const name of ['x-terminal-emulator', 'gnome-terminal', 'konsole', 'xfce4-terminal', 'mate-terminal']) {
+      try {
+        execFileSync('/usr/bin/which', [name], { timeout: 3000, encoding: 'utf-8', stdio: 'pipe', env: execEnv });
+        return true;
+      } catch { /* not found */ }
+    }
+    return false;
+  });
+
+  // Open a folder in the system terminal
+  ipcMain.handle('shell:open-in-terminal', async (_event: Electron.IpcMainInvokeEvent, folderPath: string) => {
+    const isWin = process.platform === 'win32';
+    const expandedPath = getExpandedShellPath();
+    const execEnv = { ...sanitizedProcessEnv(), ...userShellEnv, PATH: expandedPath };
+
+    try {
+      if (isWin) {
+        spawn('cmd.exe', ['/K', `cd /d "${folderPath}"`], {
+          detached: true,
+          stdio: 'ignore',
+          shell: true,
+          env: execEnv,
+          cwd: folderPath,
+        }).unref();
+      } else if (process.platform === 'darwin') {
+        const script = `tell application "Terminal" to do script "cd '${folderPath.replace(/'/g, "'\\''")}'"`;
+        spawn('osascript', ['-e', script], {
+          detached: true,
+          stdio: 'ignore',
+          env: execEnv,
+        }).unref();
+      } else {
+        // Linux: try common terminal emulators
+        const terminals: [string, string[]][] = [
+          ['x-terminal-emulator', ['-e', `cd "${folderPath}"; $SHELL`]],
+          ['gnome-terminal', ['--', 'bash', '-c', `cd "${folderPath}"; exec bash`]],
+          ['konsole', ['-e', 'bash', '-c', `cd "${folderPath}"; exec bash`]],
+          ['xfce4-terminal', ['-e', `bash -c "cd '${folderPath}'; exec bash"`]],
+          ['mate-terminal', ['-e', `bash -c "cd '${folderPath}'; exec bash"`]],
+        ];
+        for (const [cmd, args] of terminals) {
+          try {
+            execFileSync('/usr/bin/which', [cmd], { timeout: 3000, encoding: 'utf-8', stdio: 'pipe', env: execEnv });
+            spawn(cmd, args, { detached: true, stdio: 'ignore', env: execEnv, cwd: folderPath }).unref();
+            return { ok: true };
+          } catch { /* try next */ }
+        }
+        return { ok: false, error: 'No terminal emulator found' };
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
   // Bridge status IPC
   ipcMain.handle('bridge:is-active', async () => {
     return isBridgeActive();

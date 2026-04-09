@@ -88,6 +88,8 @@ export function ChatListPanel({ open, width, hasUpdate, readyToInstall }: ChatLi
     buddy?: { emoji: string; buddyName?: string; species?: string };
   } | null>(null);
   const [promoDismissed, setPromoDismissed] = useState(false);
+  const [canOpenInVSCode, setCanOpenInVSCode] = useState(false);
+  const [canOpenInTerminal, setCanOpenInTerminal] = useState(false);
 
   // Reload assistant summary when sessions change (e.g. after onboarding/rename)
   useEffect(() => {
@@ -96,6 +98,44 @@ export function ChatListPanel({ open, width, hasUpdate, readyToInstall }: ChatLi
       .then(data => setAssistantSummary(data))
       .catch(() => {});
   }, [sessions.length]);
+
+  // Detect VS Code availability once on mount
+  useEffect(() => {
+    const w = window as unknown as { electronAPI?: { shell?: { canOpenInVSCode?: () => Promise<boolean> } } };
+    const api = w.electronAPI?.shell?.canOpenInVSCode;
+    console.log('[VSCode] electronAPI available:', !!w.electronAPI, 'canOpenInVSCode available:', !!api);
+    if (api) {
+      api().then((result) => {
+        console.log('[VSCode] detection result:', result);
+        setCanOpenInVSCode(result);
+      }).catch((err) => {
+        console.log('[VSCode] detection error:', err);
+        setCanOpenInVSCode(false);
+      });
+    } else {
+      console.log('[VSCode] API not available, skipping detection');
+      setCanOpenInVSCode(false);
+    }
+  }, []);
+
+  // Detect terminal availability once on mount
+  useEffect(() => {
+    const w = window as unknown as { electronAPI?: { shell?: { canOpenInTerminal?: () => Promise<boolean> } } };
+    const api = w.electronAPI?.shell?.canOpenInTerminal;
+    console.log('[Terminal] electronAPI available:', !!w.electronAPI, 'canOpenInTerminal available:', !!api);
+    if (api) {
+      api().then((result) => {
+        console.log('[Terminal] detection result:', result);
+        setCanOpenInTerminal(result);
+      }).catch((err) => {
+        console.log('[Terminal] detection error:', err);
+        setCanOpenInTerminal(false);
+      });
+    } else {
+      console.log('[Terminal] API not available, skipping detection');
+      setCanOpenInTerminal(false);
+    }
+  }, []);
 
   /** Read current model + provider_id from localStorage for new session creation */
   const getCurrentModelAndProvider = useCallback(() => {
@@ -601,6 +641,8 @@ export function ChatListPanel({ open, width, hasUpdate, readyToInstall }: ChatLi
                     buddyEmoji={assistantSummary?.buddy?.emoji}
                     buddyName={assistantSummary?.buddy?.buddyName}
                     buddySpecies={assistantSummary?.buddy?.species}
+                    canOpenInVSCode={canOpenInVSCode}
+                    canOpenInTerminal={canOpenInTerminal}
                   />
 
                   {/* Session items with animated collapse */}

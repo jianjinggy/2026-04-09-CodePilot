@@ -31,6 +31,8 @@ const en = {
   'chatList.removeProject': 'Remove Project',
   'chatList.openFolder': 'Open Folder',
   'chatList.copyFolderPath': 'Copy Folder Path',
+  'chatList.openInVSCode': 'Open in VS Code',
+  'chatList.openInTerminal': 'Open in Terminal',
   'chatList.searchSessions': 'Search sessions...',
   'chatList.noSessions': 'No sessions yet',
   'chatList.importFromCli': 'Import from Claude Code',

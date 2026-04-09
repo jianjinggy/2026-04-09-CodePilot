@@ -69,6 +69,10 @@ interface ElectronAPI {
   };
   shell: {
     openPath: (path: string) => Promise<string>;
+    canOpenInVSCode: () => Promise<boolean>;
+    openInVSCode: (path: string) => Promise<{ ok: boolean; error?: string }>;
+    canOpenInTerminal: () => Promise<boolean>;
+    openInTerminal: (path: string) => Promise<{ ok: boolean; error?: string }>;
   };
   dialog: {
     openFolder: (options?: {

@@ -10,6 +10,8 @@ import {
   DotsThree,
   Copy,
   ArrowSquareOut,
+  Code,
+  Terminal,
 } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +44,8 @@ interface ProjectGroupHeaderProps {
   buddyEmoji?: string;
   buddyName?: string;
   buddySpecies?: string;
+  canOpenInVSCode?: boolean;
+  canOpenInTerminal?: boolean;
 }
 
 export function ProjectGroupHeader({
@@ -61,6 +65,8 @@ export function ProjectGroupHeader({
   buddyEmoji,
   buddyName,
   buddySpecies,
+  canOpenInVSCode,
+  canOpenInTerminal,
 }: ProjectGroupHeaderProps) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -117,6 +123,26 @@ export function ProjectGroupHeader({
           }}>
             <Copy size={14} />
             <span>{t('chatList.copyFolderPath' as TranslationKey)}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!canOpenInVSCode}
+            onClick={() => {
+              const w = window as unknown as { electronAPI?: { shell?: { openInVSCode?: (p: string) => Promise<{ ok: boolean; error?: string }> } } };
+              w.electronAPI?.shell?.openInVSCode?.(workingDirectory);
+            }}
+          >
+            <Code size={14} />
+            <span>{t('chatList.openInVSCode' as TranslationKey)}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!canOpenInTerminal}
+            onClick={() => {
+              const w = window as unknown as { electronAPI?: { shell?: { openInTerminal?: (p: string) => Promise<{ ok: boolean; error?: string }> } } };
+              w.electronAPI?.shell?.openInTerminal?.(workingDirectory);
+            }}
+          >
+            <Terminal size={14} />
+            <span>{t('chatList.openInTerminal' as TranslationKey)}</span>
           </DropdownMenuItem>
           {onRemoveProject && !isWorkspace && (
             <>

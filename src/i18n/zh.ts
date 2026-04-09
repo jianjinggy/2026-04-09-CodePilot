@@ -28,6 +28,8 @@ const zh: Record<TranslationKey, string> = {
   'chatList.removeProject': '移出项目',
   'chatList.openFolder': '打开文件夹',
   'chatList.copyFolderPath': '复制文件夹路径',
+  'chatList.openInVSCode': '使用 VS Code 打开',
+  'chatList.openInTerminal': '使用终端打开',
   'chatList.searchSessions': '搜索会话...',
   'chatList.noSessions': '暂无会话',
   'chatList.importFromCli': '从 Claude Code 导入',
