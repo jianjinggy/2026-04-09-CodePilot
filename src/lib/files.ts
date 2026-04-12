@@ -17,6 +17,13 @@ const IGNORED_DIRS = new Set([
   'build',
 ]);
 
+const VISIBLE_HIDDEN_DIRS = new Set([
+  '.claude',
+  '.cluade',
+  '.agents',
+  '.codex',
+]);
+
 const LANGUAGE_MAP: Record<string, string> = {
   ts: 'typescript',
   tsx: 'typescript',
@@ -97,7 +104,11 @@ export async function scanDirectory(dir: string, depth: number = 3): Promise<Fil
   return scanDirectoryRecursive(resolvedDir, depth);
 }
 
-async function scanDirectoryRecursive(dir: string, depth: number): Promise<FileTreeNode[]> {
+async function scanDirectoryRecursive(
+  dir: string,
+  depth: number,
+  includeHiddenEntries: boolean = false
+): Promise<FileTreeNode[]> {
   if (depth <= 0) return [];
 
   let entries: import('fs').Dirent[];
@@ -117,8 +128,13 @@ async function scanDirectoryRecursive(dir: string, depth: number): Promise<FileT
   });
 
   for (const entry of sorted) {
-    // Skip hidden files/dirs (except common config files)
-    if (entry.name.startsWith('.') && !entry.name.startsWith('.env')) {
+    const isHiddenEntry = entry.name.startsWith('.');
+    const isVisibleHiddenEntry = entry.name.startsWith('.env')
+      || VISIBLE_HIDDEN_DIRS.has(entry.name)
+      || includeHiddenEntries;
+
+    // Skip hidden files/dirs unless they are explicitly allowed.
+    if (isHiddenEntry && !isVisibleHiddenEntry) {
       continue;
     }
 
@@ -127,7 +143,11 @@ async function scanDirectoryRecursive(dir: string, depth: number): Promise<FileT
     if (entry.isDirectory()) {
       if (IGNORED_DIRS.has(entry.name)) continue;
 
-      const children = await scanDirectoryRecursive(fullPath, depth - 1);
+      const children = await scanDirectoryRecursive(
+        fullPath,
+        depth - 1,
+        includeHiddenEntries || VISIBLE_HIDDEN_DIRS.has(entry.name)
+      );
       nodes.push({
         name: entry.name,
         path: fullPath,

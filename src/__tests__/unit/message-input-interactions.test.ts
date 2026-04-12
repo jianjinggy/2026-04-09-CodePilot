@@ -26,6 +26,7 @@ import {
   resolveKeyAction,
   resolveDirectSlash,
   buildCliAppend,
+  insertFileMention,
 } from '../../lib/message-input-logic';
 
 // =====================================================================
@@ -197,6 +198,44 @@ describe('Popover item selection (Enter/Tab)', () => {
     assert.equal(result.action, 'set_badge');
     assert.ok(result.badge);
     assert.equal(result.badge.kind, 'slash_command');
+  });
+});
+
+describe('File tree mention insertion', () => {
+  it('inserts at the current caret position', () => {
+    const result = insertFileMention(
+      'hello world',
+      '/tmp/file.ts',
+      5,
+      5,
+    );
+
+    assert.equal(result.nextValue, 'hello @/tmp/file.ts world');
+    assert.equal(result.caretPosition, 'hello @/tmp/file.ts'.length);
+  });
+
+  it('replaces the current selection', () => {
+    const result = insertFileMention(
+      'hello world',
+      '/tmp/file.ts',
+      6,
+      11,
+    );
+
+    assert.equal(result.nextValue, 'hello @/tmp/file.ts ');
+    assert.equal(result.caretPosition, 'hello @/tmp/file.ts '.length);
+  });
+
+  it('appends to the end when there is no active caret', () => {
+    const result = insertFileMention(
+      'hello',
+      '/tmp/file.ts',
+      null,
+      null,
+    );
+
+    assert.equal(result.nextValue, 'hello @/tmp/file.ts ');
+    assert.equal(result.caretPosition, 'hello @/tmp/file.ts '.length);
   });
 });
 

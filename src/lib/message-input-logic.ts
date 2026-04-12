@@ -22,6 +22,11 @@ export interface BadgeDispatchResult {
   displayLabel: string;
 }
 
+export interface FileMentionInsertResult {
+  nextValue: string;
+  caretPosition: number;
+}
+
 export type KeyAction =
   | { type: 'popover_navigate'; direction: 'up' | 'down' }
   | { type: 'popover_select' }
@@ -122,6 +127,42 @@ export function resolveItemSelection(
   return {
     action: 'insert_file_mention',
     newInputValue: before + insertText + after,
+  };
+}
+
+export function insertFileMention(
+  inputValue: string,
+  filePath: string,
+  selectionStart?: number | null,
+  selectionEnd?: number | null,
+): FileMentionInsertResult {
+  const mention = `@${filePath}`;
+  const hasSelection = selectionStart !== null
+    && selectionStart !== undefined
+    && selectionEnd !== null
+    && selectionEnd !== undefined;
+
+  if (!hasSelection) {
+    const needsSpace = inputValue.length > 0 && !inputValue.endsWith(' ') && !inputValue.endsWith('\n');
+    const nextValue = inputValue + (needsSpace ? ' ' : '') + `${mention} `;
+    return {
+      nextValue,
+      caretPosition: nextValue.length,
+    };
+  }
+
+  const start = selectionStart;
+  const end = selectionEnd;
+  const before = inputValue.slice(0, start);
+  const after = inputValue.slice(end);
+  const needsLeadingSpace = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n');
+  const needsTrailingSpace = after.length === 0 || (!after.startsWith(' ') && !after.startsWith('\n'));
+  const insertion = `${needsLeadingSpace ? ' ' : ''}${mention}${needsTrailingSpace ? ' ' : ''}`;
+  const nextValue = before + insertion + after;
+
+  return {
+    nextValue,
+    caretPosition: (before + insertion).length,
   };
 }
 

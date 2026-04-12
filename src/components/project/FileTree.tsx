@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ArrowsClockwise, MagnifyingGlass, FileCode, Code, File } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { collectExpandedDirectoryPaths, filterFileTree } from "@/lib/file-tree-search";
 import type { FileTreeNode } from "@/types";
 import {
   FileTree as AIFileTree,
+  type FileTreeAddTarget,
   FileTreeFolder,
   FileTreeFile,
 } from "@/components/ai-elements/file-tree";
@@ -17,7 +19,7 @@ import type { ReactNode } from "react";
 interface FileTreeProps {
   workingDirectory: string;
   onFileSelect: (path: string) => void;
-  onFileAdd?: (path: string) => void;
+  onFileAdd?: (target: FileTreeAddTarget) => void;
 }
 
 function getFileIcon(extension?: string): ReactNode {
@@ -58,36 +60,15 @@ function getFileIcon(extension?: string): ReactNode {
   }
 }
 
-function containsMatch(node: FileTreeNode, query: string): boolean {
-  const q = query.toLowerCase();
-  if (node.name.toLowerCase().includes(q)) return true;
-  if (node.children) {
-    return node.children.some((child) => containsMatch(child, q));
-  }
-  return false;
-}
-
-function filterTree(nodes: FileTreeNode[], query: string): FileTreeNode[] {
-  if (!query) return nodes;
-  return nodes
-    .filter((node) => containsMatch(node, query))
-    .map((node) => ({
-      ...node,
-      children: node.children ? filterTree(node.children, query) : undefined,
-    }));
-}
-
-function RenderTreeNodes({ nodes, searchQuery }: { nodes: FileTreeNode[]; searchQuery: string }) {
-  const filtered = searchQuery ? filterTree(nodes, searchQuery) : nodes;
-
+function RenderTreeNodes({ nodes }: { nodes: FileTreeNode[] }) {
   return (
     <>
-      {filtered.map((node) => {
+      {nodes.map((node) => {
         if (node.type === "directory") {
           return (
             <FileTreeFolder key={node.path} path={node.path} name={node.name}>
               {node.children && (
-                <RenderTreeNodes nodes={node.children} searchQuery={searchQuery} />
+                <RenderTreeNodes nodes={node.children} />
               )}
             </FileTreeFolder>
           );
@@ -107,6 +88,7 @@ function RenderTreeNodes({ nodes, searchQuery }: { nodes: FileTreeNode[]; search
 
 export function FileTree({ workingDirectory, onFileSelect, onFileAdd }: FileTreeProps) {
   const [tree, setTree] = useState<FileTreeNode[]>([]);
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -179,8 +161,17 @@ export function FileTree({ workingDirectory, onFileSelect, onFileAdd }: FileTree
     return () => window.removeEventListener('refresh-file-tree', handler);
   }, [fetchTree]);
 
-  // Default to all directories collapsed
-  const defaultExpanded = new Set<string>();
+  const filteredTree = useMemo(
+    () => filterFileTree(tree, searchQuery),
+    [tree, searchQuery]
+  );
+
+  const searchExpandedPaths = useMemo(
+    () => collectExpandedDirectoryPaths(filteredTree),
+    [filteredTree]
+  );
+
+  const effectiveExpandedPaths = searchQuery ? searchExpandedPaths : expandedPaths;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -219,13 +210,14 @@ export function FileTree({ workingDirectory, onFileSelect, onFileAdd }: FileTree
           </p>
         ) : (
           <AIFileTree
-            defaultExpanded={defaultExpanded}
+            expanded={effectiveExpandedPaths}
+            onExpandedChange={setExpandedPaths}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI Elements FileTree onSelect type conflicts with HTMLAttributes.onSelect
             onSelect={onFileSelect as any}
             onAdd={onFileAdd}
             className="border-0 rounded-none"
           >
-            <RenderTreeNodes nodes={tree} searchQuery={searchQuery} />
+            <RenderTreeNodes nodes={filteredTree} />
           </AIFileTree>
         )}
       </div>

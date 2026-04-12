@@ -18,7 +18,7 @@ import { SlashCommandPopover } from './SlashCommandPopover';
 import { CliToolsPopover } from './CliToolsPopover';
 import { ModelSelectorDropdown } from './ModelSelectorDropdown';
 import { EffortSelectorDropdown } from './EffortSelectorDropdown';
-import { FileAwareSubmitButton, AttachFileButton, FileTreeAttachmentBridge, FileAttachmentsCapsules, CommandBadge, CliBadge } from './MessageInputParts';
+import { FileAwareSubmitButton, AttachFileButton, FileAttachmentsCapsules, CommandBadge, CliBadge } from './MessageInputParts';
 import {
   Tooltip,
   TooltipContent,
@@ -33,7 +33,7 @@ import { useProviderModels } from '@/hooks/useProviderModels';
 import { useCommandBadge } from '@/hooks/useCommandBadge';
 import { useCliToolsFetch } from '@/hooks/useCliToolsFetch';
 import { useSlashCommands } from '@/hooks/useSlashCommands';
-import { resolveKeyAction, cycleIndex, resolveDirectSlash, dispatchBadge, buildCliAppend } from '@/lib/message-input-logic';
+import { resolveKeyAction, cycleIndex, resolveDirectSlash, dispatchBadge, buildCliAppend, insertFileMention } from '@/lib/message-input-logic';
 import { QuickActions } from './QuickActions';
 
 interface MessageInputProps {
@@ -85,6 +85,7 @@ export function MessageInput({
   const { t, locale } = useTranslation();
   const imageGen = useImageGen();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastSelectionRef = useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
   const searchInputRef = useRef<HTMLInputElement>(null);
   const cliSearchRef = useRef<HTMLInputElement>(null);
   // key={initialValue} on the parent would be the canonical React way to reset,
@@ -154,17 +155,43 @@ export function MessageInput({
     }
   }, [onAssistantTrigger]);
 
-  // Listen for file tree "+" button: insert @filepath into textarea
+  const updateTextareaSelection = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    lastSelectionRef.current = {
+      start: textarea.selectionStart,
+      end: textarea.selectionEnd,
+    };
+  }, []);
+
+  // Listen for file tree "+" button: insert @filepath at the current caret,
+  // or at the last remembered caret after focus leaves the textarea.
   useEffect(() => {
     const handler = (e: Event) => {
       const filePath = (e as CustomEvent<{ path: string }>).detail?.path;
       if (!filePath) return;
-      const mention = `@${filePath} `;
+
+      const textarea = textareaRef.current;
+      const isFocused = !!textarea && document.activeElement === textarea;
+      const selectionStart = isFocused
+        ? textarea.selectionStart
+        : lastSelectionRef.current.start;
+      const selectionEnd = isFocused
+        ? textarea.selectionEnd
+        : lastSelectionRef.current.end;
+
+      let caretPosition = 0;
       setInputValue((prev) => {
-        const needsSpace = prev.length > 0 && !prev.endsWith(' ') && !prev.endsWith('\n');
-        return prev + (needsSpace ? ' ' : '') + mention;
+        const result = insertFileMention(prev, filePath, selectionStart, selectionEnd);
+        caretPosition = result.caretPosition;
+        return result.nextValue;
       });
-      setTimeout(() => textareaRef.current?.focus(), 0);
+
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(caretPosition, caretPosition);
+        lastSelectionRef.current = { start: caretPosition, end: caretPosition };
+      }, 0);
     };
     window.addEventListener('insert-file-mention', handler);
     return () => window.removeEventListener('insert-file-mention', handler);
@@ -399,8 +426,6 @@ export function MessageInput({
             accept=""
             multiple
           >
-            {/* Bridge: listens for file tree "+" button events */}
-            <FileTreeAttachmentBridge />
             {/* Command badge */}
             {badge && (
               <CommandBadge
@@ -421,7 +446,13 @@ export function MessageInput({
               value={inputValue}
               onChange={(e) => slashCommands.handleInputChange(e.currentTarget.value)}
               onKeyDown={handleKeyDown}
-              onFocus={handleAssistantFocus}
+              onKeyUp={updateTextareaSelection}
+              onClick={updateTextareaSelection}
+              onSelect={updateTextareaSelection}
+              onFocus={() => {
+                handleAssistantFocus();
+                updateTextareaSelection();
+              }}
               disabled={disabled}
               className="min-h-10"
             />

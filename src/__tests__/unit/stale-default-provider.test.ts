@@ -249,4 +249,42 @@ describe('FileTreeFolder keyboard accessibility', () => {
       `FileTreeFolder should have exactly 1 tabIndex={0}, found ${tabIndexMatches.length}`,
     );
   });
+
+  it('FileTreeFolder add button dispatches directory add without toggling', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'src/components/ai-elements/file-tree.tsx'),
+      'utf-8',
+    );
+
+    const folderStart = source.indexOf('export const FileTreeFolder');
+    const folderEnd = source.indexOf('export const FileTreeFile');
+    const folderSource = source.slice(folderStart, folderEnd);
+
+    assert.ok(
+      folderSource.includes('nodeType: "directory"'),
+      'folder add action should tag targets as directories',
+    );
+    assert.ok(
+      folderSource.includes('e.preventDefault();') && folderSource.includes('e.stopPropagation();'),
+      'folder add action should prevent toggling the collapsible row',
+    );
+  });
+});
+
+describe('FileTreePanel add routing', () => {
+  it('routes all file tree adds to mention insertion', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'src/components/layout/panels/FileTreePanel.tsx'),
+      'utf-8',
+    );
+
+    assert.ok(
+      source.includes("new CustomEvent('insert-file-mention'"),
+      'file tree targets should insert @mentions',
+    );
+  });
 });

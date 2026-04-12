@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import type { FileTreeAddTarget } from "@/components/ai-elements/file-tree";
 import { X } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { usePanel } from "@/hooks/usePanel";
@@ -22,8 +23,8 @@ export function FileTreePanel() {
     setWidth((w) => Math.min(TREE_MAX_WIDTH, Math.max(TREE_MIN_WIDTH, w - delta)));
   }, []);
 
-  const handleFileAdd = useCallback((path: string) => {
-    window.dispatchEvent(new CustomEvent('attach-file-to-chat', { detail: { path } }));
+  const handleFileAdd = useCallback((target: FileTreeAddTarget) => {
+    window.dispatchEvent(new CustomEvent('insert-file-mention', { detail: { path: target.path } }));
   }, []);
 
   const handleFileSelect = useCallback((path: string) => {

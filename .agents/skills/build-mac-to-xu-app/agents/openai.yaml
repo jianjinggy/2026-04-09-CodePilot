@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Mac to XU/APP"
+  short_description: "Build CodePilot mac app, copy it to XU/APP, and launch it"
+  default_prompt: "Use $build-mac-to-xu-app to build CodePilot for macOS, copy the app bundle to /Volumes/XU/APP, and open it."

@@ -28,7 +28,7 @@ interface FileTreeContextType {
   togglePath: (path: string) => void;
   selectedPath?: string;
   onSelect?: (path: string) => void;
-  onAdd?: (path: string) => void;
+  onAdd?: (target: FileTreeAddTarget) => void;
 }
 
 // Default noop for context default value
@@ -41,12 +41,17 @@ const FileTreeContext = createContext<FileTreeContextType>({
   togglePath: noop,
 });
 
+export type FileTreeAddTarget = {
+  path: string;
+  nodeType: "file" | "directory";
+};
+
 export type FileTreeProps = HTMLAttributes<HTMLDivElement> & {
   expanded?: Set<string>;
   defaultExpanded?: Set<string>;
   selectedPath?: string;
   onSelect?: (path: string) => void;
-  onAdd?: (path: string) => void;
+  onAdd?: (target: FileTreeAddTarget) => void;
   onExpandedChange?: (expanded: Set<string>) => void;
 };
 
@@ -123,13 +128,22 @@ export const FileTreeFolder = ({
   children,
   ...props
 }: FileTreeFolderProps) => {
-  const { expandedPaths, togglePath } =
+  const { expandedPaths, togglePath, onAdd } =
     useContext(FileTreeContext);
   const isExpanded = expandedPaths.has(path);
 
   const handleToggle = useCallback(() => {
     togglePath(path);
   }, [togglePath, path]);
+
+  const handleAdd = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onAdd?.({ path, nodeType: "directory" });
+    },
+    [onAdd, path]
+  );
 
   const folderContextValue = useMemo(
     () => ({ isExpanded, name, path }),
@@ -140,41 +154,54 @@ export const FileTreeFolder = ({
     <FileTreeFolderContext.Provider value={folderContextValue}>
       <Collapsible onOpenChange={handleToggle} open={isExpanded}>
         <div
-          className={cn("", className)}
+          className={cn("group/folder", className)}
           role="treeitem"
           {...props}
         >
-          <CollapsibleTrigger asChild>
-            <div
-              className="flex w-full cursor-pointer items-center gap-1 rounded px-2 py-1 text-left transition-colors hover:bg-muted/50"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleToggle();
-                }
-              }}
-            >
-              <span className="shrink-0 rounded p-0.5">
-                <CaretRight
-                  size={16}
-                  className={cn(
-                    "text-muted-foreground transition-transform",
-                    isExpanded && "rotate-90"
+          <div className="flex items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-muted/50">
+            <CollapsibleTrigger asChild>
+              <div
+                className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 text-left"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleToggle();
+                  }
+                }}
+              >
+                <span className="shrink-0 rounded p-0.5">
+                  <CaretRight
+                    size={16}
+                    className={cn(
+                      "text-muted-foreground transition-transform",
+                      isExpanded && "rotate-90"
+                    )}
+                  />
+                </span>
+                <FileTreeIcon>
+                  {isExpanded ? (
+                    <FolderOpen size={16} className="text-muted-foreground" />
+                  ) : (
+                    <Folder size={16} className="text-muted-foreground" />
                   )}
-                />
-              </span>
-              <FileTreeIcon>
-                {isExpanded ? (
-                  <FolderOpen size={16} className="text-muted-foreground" />
-                ) : (
-                  <Folder size={16} className="text-muted-foreground" />
-                )}
-              </FileTreeIcon>
-              <FileTreeName>{name}</FileTreeName>
-            </div>
-          </CollapsibleTrigger>
+                </FileTreeIcon>
+                <FileTreeName>{name}</FileTreeName>
+              </div>
+            </CollapsibleTrigger>
+            {onAdd && (
+              <button
+                type="button"
+                className="flex size-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:bg-muted group-hover/folder:opacity-100"
+                onClick={handleAdd}
+                title="Add to chat"
+                aria-label="Add to chat"
+              >
+                <Plus size={12} className="text-muted-foreground" />
+              </button>
+            )}
+          </div>
           <CollapsibleContent>
             <div className="ml-4 border-l pl-2">{children}</div>
           </CollapsibleContent>
@@ -225,9 +252,9 @@ export const FileTreeFile = ({
   );
 
   const handleAdd = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
-      onAdd?.(path);
+      onAdd?.({ path, nodeType: "file" });
     },
     [onAdd, path]
   );
@@ -260,6 +287,7 @@ export const FileTreeFile = ({
                 className="ml-auto flex size-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:bg-muted group-hover/file:opacity-100"
                 onClick={handleAdd}
                 title="Add to chat"
+                aria-label="Add to chat"
               >
                 <Plus size={12} className="text-muted-foreground" />
               </button>

@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
 import { ArrowUp, Plus, X, Stop, Terminal } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
-import { useTranslation } from '@/hooks/useTranslation';
 import {
   PromptInputButton,
   PromptInputSubmit,
@@ -70,49 +69,6 @@ export function AttachFileButton() {
       <Plus size={16} />
     </PromptInputButton>
   );
-}
-
-/**
- * Bridge component that listens for 'attach-file-to-chat' custom events
- * from the file tree and adds the file as a proper attachment (capsule).
- * Uses /api/files/raw to fetch the real file binary, preserving type and content.
- */
-export function FileTreeAttachmentBridge() {
-  const attachments = usePromptInputAttachments();
-
-  const handleAttach = useCallback(async (filePath: string) => {
-    try {
-      const res = await fetch(`/api/files/raw?path=${encodeURIComponent(filePath)}`);
-      if (!res.ok) {
-        // Fallback: insert as @mention if the raw API fails
-        window.dispatchEvent(new CustomEvent('insert-file-mention', { detail: { path: filePath } }));
-        return;
-      }
-      const blob = await res.blob();
-      const fileName = filePath.split('/').pop() || 'file';
-      // Use the content-type from the server response (it resolves from extension)
-      const contentType = res.headers.get('content-type') || 'application/octet-stream';
-      const file = new File([blob], fileName, { type: contentType });
-      attachments.add([file]);
-    } catch {
-      // Fallback: insert as @mention if fetch fails
-      window.dispatchEvent(new CustomEvent('insert-file-mention', { detail: { path: filePath } }));
-    }
-  }, [attachments]);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const customEvent = e as CustomEvent<{ path: string }>;
-      const filePath = customEvent.detail?.path;
-      if (!filePath) return;
-      handleAttach(filePath);
-    };
-
-    window.addEventListener('attach-file-to-chat', handler);
-    return () => window.removeEventListener('attach-file-to-chat', handler);
-  }, [handleAttach]);
-
-  return null;
 }
 
 /**
